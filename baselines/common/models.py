@@ -236,7 +236,7 @@ def conv_only(convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)], **conv_kwargs):
 
     def network_fn(X):
         out = tf.cast(X, tf.float32) / 255.
-        with tf.variable_scope("convnet"):
+        with tf.variable_scope("convnet",reuse=tf.AUTO_REUSE):
             for num_outputs, kernel_size, stride in convs:
                 out = tf.contrib.layers.convolution2d(out,
                                            num_outputs=num_outputs,

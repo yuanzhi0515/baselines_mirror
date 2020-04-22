@@ -241,6 +241,7 @@ def main(args):
                 for i in np.nonzero(done)[0]:
                     print('episode_rew={}'.format(episode_rew[i]))
                     episode_rew[i] = 0
+                obs = env.reset()
 
     env.close()
 

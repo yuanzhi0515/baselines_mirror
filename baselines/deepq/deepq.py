@@ -102,7 +102,7 @@ def learn(env,
           exploration_final_eps=0.02,
           train_freq=1,
           batch_size=32,
-          print_freq=100,
+          print_freq=1,
           checkpoint_freq=10000,
           checkpoint_path=None,
           learning_starts=1000,
@@ -237,6 +237,11 @@ def learn(env,
     update_target()
 
     episode_rewards = [0.0]
+    episode_scores = [0.0]
+    episode_lens = [0.0]
+    weighted_loss_buff = [0.0]
+    mirror_loss_buff = [0.0]
+    errors_buff = [0.0]
     saved_mean_reward = None
     obs = env.reset()
     reset = True
@@ -278,16 +283,26 @@ def learn(env,
             action = act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
             env_action = action
             reset = False
-            new_obs, rew, done, _ = env.step(env_action)
+            new_obs, rew, done, infos= env.step(env_action)
+            
             # Store transition in the replay buffer.
             replay_buffer.add(obs, action, rew, new_obs, float(done))
             obs = new_obs
+            episode_infos = infos.get('episode')
 
             episode_rewards[-1] += rew
             if done:
                 obs = env.reset()
-                episode_rewards.append(0.0)
+                #episode_scores[-1] += infos['episode']['r']
+                #episode_scores.append(0.0)
+                #episode_rewards.append(0.0)
                 reset = True
+                if episode_infos is not None:
+                    episode_scores[-1] += episode_infos['r']
+                    episode_lens[-1] += episode_infos['l']
+                    episode_scores.append(0.0)
+                    episode_lens.append(0.0)
+                    episode_rewards.append(0.0)
 
             if t > learning_starts and t % train_freq == 0:
                 # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
@@ -297,21 +312,43 @@ def learn(env,
                 else:
                     obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
                     weights, batch_idxes = np.ones_like(rewards), None
-                td_errors = train(obses_t, actions, rewards, obses_tp1, dones, weights)
+                td_errors, weighted_loss, mirror_loss, errors = train(obses_t, actions, rewards, obses_tp1, dones, weights)
                 if prioritized_replay:
                     new_priorities = np.abs(td_errors) + prioritized_replay_eps
                     replay_buffer.update_priorities(batch_idxes, new_priorities)
+                weighted_loss_buff[-1] = weighted_loss
+                mirror_loss_buff[-1] = mirror_loss
+                errors_buff[-1] = errors
+                weighted_loss_buff.append(0.0)
+                mirror_loss_buff.append(0.0)
+                errors_buff.append(0.0)
 
             if t > learning_starts and t % target_network_update_freq == 0:
                 # Update target network periodically.
                 update_target()
 
-            mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
+            #mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
             num_episodes = len(episode_rewards)
-            if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
+            if done and print_freq is not None and episode_infos is not None and len(episode_rewards) % print_freq == 0:
+                mean_100ep_score = round(np.mean(episode_scores[-101:-1]), 1)
+                mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
+                mean_100ep_len = round(np.mean(episode_lens[-101:-1]),1)
+                if len(weighted_loss_buff) == 1:
+                    mean_weighted_loss = 0.0
+                    mean_mirror_loss = 0.0
+                    mean_errors = 0.0
+                else:
+                    mean_weighted_loss = np.mean(weighted_loss_buff[-101:-1])
+                    mean_mirror_loss = np.mean(mirror_loss_buff[-101:-1])
+                    mean_errors = np.mean(errors_buff[-101:-1])
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
                 logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
+                logger.record_tabular("mean 100 episode score", mean_100ep_score)
+                logger.record_tabular("mean 100 episode len", mean_100ep_len)
+                logger.record_tabular('mean 100 train update weighted loss',mean_weighted_loss)
+                logger.record_tabular('mean 100 train update mirror loss',mean_mirror_loss)
+                logger.record_tabular('mean 100 train update errors', mean_errors)
                 logger.record_tabular("% time spent exploring", int(100 * exploration.value(t)))
                 logger.dump_tabular()
 

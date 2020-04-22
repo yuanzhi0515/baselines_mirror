@@ -313,6 +313,21 @@ def build_act_with_param_noise(make_obs_ph, q_func, num_actions, scope="deepq", 
             return _act(ob, stochastic, update_eps, reset, update_param_noise_threshold, update_param_noise_scale)
         return act
 
+def q_t_mirror_modify(q_t_mirror_original,game = 'Pong'):
+    if game =='Pong':
+        position = {0:[0,2],1:[3,4],2:[2,3],3:[5,6],4:[4,5]}
+    elif game =='Breakout':
+        position = {0:[0,2],1:[3,4],2:[2,3]}
+    elif game == None:
+        return q_t_mirror_original
+    lenp=len(position)
+    part = []
+    for i in range(lenp):
+        left = position[i][0]
+        right = position[i][1]
+        part.append(q_t_mirror_original[:,left:right])
+    q_t_mirror_final=tf.concat(part,axis=1)
+    return q_t_mirror_final
 
 def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=None, gamma=1.0,
     double_q=True, scope="deepq", reuse=None, param_noise=False, param_noise_filter_func=None):
@@ -387,7 +402,12 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         # q network evaluation
         q_t = q_func(obs_t_input.get(), num_actions, scope="q_func", reuse=True)  # reuse parameters from act
         q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/q_func")
-
+        
+        #计算镜像后 q network输出，使用q network参数
+        obs_t_input_mirror = tf.reverse(obs_t_input.get(),axis=[2])
+        q_t_mirror = q_func(obs_t_input_mirror,num_actions,scope="q_func",reuse=True)
+        q_t_mirror_modified = q_t_mirror_modify(q_t_mirror,game=None)
+        mirror_loss_unpri = tf.reduce_sum(tf.square(q_t_mirror_modified - q_t), 1)
         # target q network evalution
         q_tp1 = q_func(obs_tp1_input.get(), num_actions, scope="target_q_func")
         target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/target_q_func")
@@ -410,8 +430,10 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         # compute the error (potentially clipped)
         td_error = q_t_selected - tf.stop_gradient(q_t_selected_target)
         errors = U.huber_loss(td_error)
-        weighted_error = tf.reduce_mean(importance_weights_ph * errors)
-
+        weighted_error_ = tf.reduce_mean(importance_weights_ph * errors)
+        
+        mirror_loss = 0.01 * tf.reduce_mean(importance_weights_ph * mirror_loss_unpri)
+        weighted_error = weighted_error_ + mirror_loss
         # compute optimization op (potentially with gradient clipping)
         if grad_norm_clipping is not None:
             gradients = optimizer.compute_gradients(weighted_error, var_list=q_func_vars)
@@ -439,7 +461,7 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
                 done_mask_ph,
                 importance_weights_ph
             ],
-            outputs=td_error,
+            outputs=[td_error, weighted_error_, mirror_loss, tf.reduce_mean(errors)],
             updates=[optimize_expr]
         )
         update_target = U.function([], [], updates=[update_target_expr])
