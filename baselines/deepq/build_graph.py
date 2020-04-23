@@ -404,9 +404,9 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/q_func")
         
         #计算镜像后 q network输出，使用q network参数
-        obs_t_input_mirror = tf.reverse(obs_t_input.get(),axis=[2])
+        obs_t_input_mirror = tf.reverse(obs_t_input.get(),axis=[1,2])
         q_t_mirror = q_func(obs_t_input_mirror,num_actions,scope="q_func",reuse=True)
-        q_t_mirror_modified = q_t_mirror_modify(q_t_mirror,game=None)
+        q_t_mirror_modified = q_t_mirror_modify(q_t_mirror,game='Pong')
         mirror_loss_unpri = tf.reduce_sum(tf.square(q_t_mirror_modified - q_t), 1)
         # target q network evalution
         q_tp1 = q_func(obs_tp1_input.get(), num_actions, scope="target_q_func")
