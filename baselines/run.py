@@ -198,7 +198,41 @@ def configure_logger(log_path, **kwargs):
     else:
         logger.configure(**kwargs)
 
-
+def test_action(actions, game=None, mode=None):
+    if game == 'Pong':
+        if mode =='updown':
+            actionmap = {0:0,1:1,2:3,3:2,4:5,5:4}
+        else:
+            return actions
+    elif game == 'Breakout':
+        if mode == 'rightleft':
+            actionmap = {0:0,1:1,2:3,3:2}
+        else:
+            return actions
+    elif game == 'Qbert':
+        if mode == 'updown':
+            actionmap = {0:0,1:1,2:5,3:3,4:4,5:2}
+        elif mode == 'rightleft':
+            actionmap = {0:0,1:1,2:2,3:4,4:3,5:5}
+    elif game =='BeamRider':
+        if mode == 'leftright':
+            actionmap = {0:0,1:1,2:2,3:4,4:3,5:6,6:5,7:8,8:7}
+        else:
+            return actions
+    elif game == 'Euduro':
+        if mode == 'leftright':
+            actionmap = {0:0,1:1,2:3,3:2,4:4,5:6,6:5,7:8,8:7}
+        else:
+            return actions
+    elif game == 'Seaquest':
+        if mode == 'leftright':
+            actionmap = {0:0,1:1,2:2,3:4,4:3,5:5,6:7,7:6,8:9,9:8,10:10,11:12,12:11,13:13,14:15,15:14,16:17,17:16}
+        elif mode == 'updown':
+            actionmap = {0:0,1:1,2:5,3:3,4:4,5:2,6:8,7:9,8:6,9:7,10:13,11:11,12:12,13:10,14:16,15:17,16:14,17:15}
+    elif game == None:
+        return actions
+    actions[0] = actionmap[actions[0]]
+    return actions
 def main(args):
     # configure logger, disable logging in child MPI processes (with rank > 0)
 
@@ -232,6 +266,8 @@ def main(args):
                 actions, _, state, _ = model.step(obs,S=state, M=dones)
             else:
                 actions, _, _, _ = model.step(obs)
+            
+            actions = test_action(actions,game='Pong', mode='updown')
 
             obs, rew, done, _ = env.step(actions)
             episode_rew += rew

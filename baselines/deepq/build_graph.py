@@ -313,11 +313,37 @@ def build_act_with_param_noise(make_obs_ph, q_func, num_actions, scope="deepq", 
             return _act(ob, stochastic, update_eps, reset, update_param_noise_threshold, update_param_noise_scale)
         return act
 
-def q_t_mirror_modify(q_t_mirror_original,game = 'Pong'):
+def q_t_mirror_modify(q_t_mirror_original,game = 'Pong',mode='updown'):
     if game =='Pong':
-        position = {0:[0,2],1:[3,4],2:[2,3],3:[5,6],4:[4,5]}
+        if mode == 'leftright':
+            return q_t_mirror_original
+        elif mode == 'updown':
+            position = {0:[0,2],1:[3,4],2:[2,3],3:[5,6],4:[4,5]}
     elif game =='Breakout':
-        position = {0:[0,2],1:[3,4],2:[2,3]}
+        if mode == 'updown':
+            return q_t_mirror_original
+        elif mode == 'leftright':
+            position = {0:[0,2],1:[3,4],2:[2,3]}
+    elif game == 'Qbert':
+        if mode == 'updown':
+            position = {0:[0,2],1:[5,6],2:[3,5],3:[2,3]}
+        elif mode == 'leftright':
+            position = {0:[0,3],1:[4,5],2:[3,4],3:[5,6]}
+    elif game == 'BeamRider':
+        if mode == 'leftright':
+            position = {0:[0,3],1:[4,5],2:[3,4],3:[6,7],4:[5,6],5:[8,9],6:[7,8]}
+        elif mode == 'updown':
+            return q_t_mirror_original
+    elif game == 'Enduro':
+        if mode == 'leftright':
+            position = {0:[0,2],1:[3,4],2:[2,3],3:[4,5],4:[6,7],5:[5,6],6:[8,9],7:[7,8]}
+        elif mode == 'updown':
+            return q_t_mirror_original
+    elif game == 'Seaquest':
+        if mode == 'updown':
+            position = {0:[0,2],1:[5,6],2:[3,5],3:[2,3],4:[8,10],5:[6,8],6:[13,14],7:[11,13],8:[10,11],9:[16,18],10:[14,16]}
+        elif mode == 'leftright':
+            position = {0:[0,3],1:[4,5],2:[3,4],3:[5,6],4:[7,8],5:[6,7],6:[9,10],7:[8,9],8:[10,11],9:[12,13],10:[11,12],11:[13,14],12:[15,16],13:[14,15],14:[17,18],15:[16,17]}
     elif game == None:
         return q_t_mirror_original
     lenp=len(position)
@@ -404,9 +430,9 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/q_func")
         
         #计算镜像后 q network输出，使用q network参数
-        obs_t_input_mirror = tf.reverse(obs_t_input.get(),axis=[1,2])
+        obs_t_input_mirror = tf.reverse(obs_t_input.get(),axis=[1])
         q_t_mirror = q_func(obs_t_input_mirror,num_actions,scope="q_func",reuse=True)
-        q_t_mirror_modified = q_t_mirror_modify(q_t_mirror,game='Pong')
+        q_t_mirror_modified = q_t_mirror_modify(q_t_mirror,game='Pong',mode='leftright')
         mirror_loss_unpri = tf.reduce_sum(tf.square(q_t_mirror_modified - q_t), 1)
         # target q network evalution
         q_tp1 = q_func(obs_tp1_input.get(), num_actions, scope="target_q_func")
