@@ -87,10 +87,11 @@ class Model(object):
         approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - OLDNEGLOGPAC))
         clipfrac = tf.reduce_mean(tf.to_float(tf.greater(tf.abs(ratio - 1.0), CLIPRANGE)))
         #mirror loss
-        mirror_loss = tf.reduce_mean(train_model.mirror_kl)
+        policy_mirror_loss = tf.reduce_mean(train_model.policy_mirrorloss)
+        value_mirror_loss = tf.reduce_mean(train_model.value_mirrorloss)
         # Total loss
         loss = pg_loss - entropy * ent_coef + vf_loss * vf_coef
-        loss = loss + mirror_loss
+        loss = loss + policy_mirror_loss + value_mirror_loss
         # UPDATE THE PARAMETERS USING LOSS
         # 1. Get the model parameters
         params = tf.trainable_variables('ppo2_model')
@@ -113,8 +114,8 @@ class Model(object):
         self.grads = grads
         self.var = var
         self._train_op = self.trainer.apply_gradients(grads_and_var)
-        self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac', 'mirror loss', 'total loss']
-        self.stats_list = [pg_loss, vf_loss, entropy, approxkl, clipfrac, mirror_loss, loss]
+        self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac', 'policy mirror loss', 'value mirror loss','total loss']
+        self.stats_list = [pg_loss, vf_loss, entropy, approxkl, clipfrac, policy_mirror_loss, value_mirror_loss, loss]
 
 
         self.train_model = train_model
