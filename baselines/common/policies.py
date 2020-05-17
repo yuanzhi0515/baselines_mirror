@@ -63,7 +63,6 @@ class PolicyWithValue(object):
         # p0 = ea0 / z0
         # self.mirror_kl = tf.reduce_sum(p0 * (a0 - tf.log(z0) - a1 + tf.log(z1)), axis=-1)
         self.policy_mirrorloss = tf.reduce_mean(tf.square(self.pi - pi_mirror),1)
-        print('policy mirror loss shape:{}'.format(self.policy_mirrorloss.shape))
         # Calculate the neg log of our probability
         self.neglogp = self.pd.neglogp(self.action)
         self.sess = sess or tf.get_default_session()
