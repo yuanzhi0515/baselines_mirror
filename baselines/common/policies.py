@@ -41,18 +41,24 @@ class PolicyWithValue(object):
         vf_latent = vf_latent if vf_latent is not None else latent
         vf_latent = tf.layers.flatten(vf_latent)
         latent = tf.layers.flatten(latent)
-
-        # Based on the action space, will select what probability distribution type
-        self.pdtype = make_pdtype(env.action_space)
-
-        self.pd, self.pi = self.pdtype.pdfromlatent(latent, init_scale=0.01)
         mirrorlatent = tf.layers.flatten(mirrorlatent)
         mirror_vf_latent = mirrorlatent
-        _,pi_mirror = self.pdtype.pdfromlatent(mirrorlatent,init_scale=0.01)
+        latent_all = tf.concat([latent,mirrorlatent],axis=0)
+        vf_latent_all = tf.concat([vf_latent,mirror_vf_latent],axis=0)
+        # Based on the action space, will select what probability distribution type
+        self.pdtype = make_pdtype(env.action_space)
+        self.pd, self.pi_all = self.pdtype.pdfromlatent(latent_all, init_scale=0.01)
+        #self.pd, self.pi = self.pdtype.pdfromlatent(latent, init_scale=0.01)
+        self.pi = self.pi_all[0:latent.shape[0],:]
+        pi_mirror = self.pi_all[latent.shape[0]:,:]
+        # print('pi shape{}'.format(self.pi.shape))
+        #_,pi_mirror = self.pdtype.pdfromlatent(mirrorlatent,init_scale=0.01)
         # Take an action
         self.action = self.pd.sample()
         
         pi_mirror = q_t_mirror_modify(pi_mirror,game='Pong',mode='updown')
+        pi_origin = tf.nn.softmax(self.pi)
+        pi_mirror = tf.nn.softmax(pi_mirror)
         # pi_logit = self.pi
         # a0 = pi_logit - tf.reduce_max(pi_logit, axis=-1, keepdims=True)
         # a1 = pi_mirror - tf.reduce_max(pi_mirror, axis=-1, keepdims=True)
@@ -61,8 +67,8 @@ class PolicyWithValue(object):
         # z0 = tf.reduce_sum(ea0, axis=-1, keepdims=True)
         # z1 = tf.reduce_sum(ea1, axis=-1, keepdims=True)
         # p0 = ea0 / z0
-        # self.mirror_kl = tf.reduce_sum(p0 * (a0 - tf.log(z0) - a1 + tf.log(z1)), axis=-1)
-        self.policy_mirrorloss = tf.reduce_mean(tf.square(self.pi - pi_mirror),1)
+        # self.policy_mirrorloss = tf.reduce_sum(p0 * (a0 - tf.log(z0) - a1 + tf.log(z1)), axis=-1)
+        self.policy_mirrorloss = tf.reduce_mean(tf.square(pi_origin - pi_mirror),1)
         # Calculate the neg log of our probability
         self.neglogp = self.pd.neglogp(self.action)
         self.sess = sess or tf.get_default_session()
@@ -72,9 +78,14 @@ class PolicyWithValue(object):
             self.q = fc(vf_latent, 'q', env.action_space.n)
             self.vf = self.q
         else:
-            self.vf = fc(vf_latent, 'vf', 1)
-            vf_mirror = fc(mirror_vf_latent, 'vf', 1)
+            #self.vf = fc(vf_latent, 'vf', 1)
+            #vf_mirror = fc(mirror_vf_latent, 'vf', 1)
+            vf_all = fc(vf_latent_all, 'vf', 1)
+            # print('vf all shape{}'.format(vf_all.shape))
+            self.vf = vf_all[0:vf_latent.shape[0],:]
             self.vf = self.vf[:,0]
+            # print('vf shape {}'.format(self.vf.shape))
+            vf_mirror = vf_all[vf_latent.shape[0]:,:]
             vf_mirror = vf_mirror[:,0]
         self.value_mirrorloss = tf.square(self.vf - vf_mirror)
 

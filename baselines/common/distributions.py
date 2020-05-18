@@ -63,7 +63,10 @@ class CategoricalPdType(PdType):
         return CategoricalPd
     def pdfromlatent(self, latent_vector, init_scale=1.0, init_bias=0.0):
         pdparam = _matching_fc(latent_vector, 'pi', self.ncat, init_scale=init_scale, init_bias=init_bias)
-        return self.pdfromflat(pdparam), pdparam
+        pdn = pdparam.shape[0]//2
+        #print('pdn{}'.format(pdn))
+        return self.pdfromflat(pdparam[0:pdn,:]), pdparam
+        #return self.pdfromflat(pdparam), pdparam
 
     def param_shape(self):
         return [self.ncat]
