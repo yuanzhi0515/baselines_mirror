@@ -1,7 +1,8 @@
 **Status:** Maintenance (expect bug fixes and minor updates)
 
 <img src="data/logo.jpg" width=25% align="right" /> [![Build status](https://travis-ci.org/openai/baselines.svg?branch=master)](https://travis-ci.org/openai/baselines)
-
+# PPO 镜像
+修改了common的policies.py distributions.py ppo2的model.py，具体修改有中文注释
 # Baselines
 
 OpenAI Baselines is a set of high-quality implementations of reinforcement learning algorithms.
