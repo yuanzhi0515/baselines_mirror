@@ -63,8 +63,9 @@ class CategoricalPdType(PdType):
         return CategoricalPd
     def pdfromlatent(self, latent_vector, init_scale=1.0, init_bias=0.0):
         pdparam = _matching_fc(latent_vector, 'pi', self.ncat, init_scale=init_scale, init_bias=init_bias)
+        #下方是添加的，baselines原本是最后一条注释语句，按我的改法，pdfromlatent只有前一半与
+        #修改前意义一致，所以下方pdfromflat中使用前一半使用前一半
         pdn = pdparam.shape[0]//2
-        #print('pdn{}'.format(pdn))
         return self.pdfromflat(pdparam[0:pdn,:]), pdparam
         #return self.pdfromflat(pdparam), pdparam
 

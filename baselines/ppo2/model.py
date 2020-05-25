@@ -86,9 +86,10 @@ class Model(object):
         pg_loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2))
         approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - OLDNEGLOGPAC))
         clipfrac = tf.reduce_mean(tf.to_float(tf.greater(tf.abs(ratio - 1.0), CLIPRANGE)))
-        #mirror loss
-        policy_mirror_loss = tf.reduce_mean(train_model.policy_mirrorloss)
-        value_mirror_loss = tf.reduce_mean(train_model.value_mirrorloss)
+        #mirror loss这里计算镜像loss，10 和 0.01是在enduro上为了让policy_mirror_loss、
+        #value_mirror_loss和原来的loss数量级差不多加的系数
+        policy_mirror_loss = 10*tf.reduce_mean(train_model.policy_mirrorloss)
+        value_mirror_loss = 0.01*tf.reduce_mean(train_model.value_mirrorloss)
         # Total loss
         loss = pg_loss - entropy * ent_coef + vf_loss * vf_coef
         loss = loss + policy_mirror_loss + value_mirror_loss
@@ -116,7 +117,7 @@ class Model(object):
         self._train_op = self.trainer.apply_gradients(grads_and_var)
         self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac', 'policy mirror loss', 'value mirror loss','total loss']
         self.stats_list = [pg_loss, vf_loss, entropy, approxkl, clipfrac, policy_mirror_loss, value_mirror_loss, loss]
-
+        #上方在状态列表中添加了镜像loss用于记录
 
         self.train_model = train_model
         self.act_model = act_model
